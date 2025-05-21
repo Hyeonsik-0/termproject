@@ -8,7 +8,10 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.example.termproject.R
 import com.example.termproject.databinding.FragmentHomeBinding
+import java.text.SimpleDateFormat
+import java.util.*
 
 class HomeFragment : Fragment() {
 
@@ -29,40 +32,45 @@ class HomeFragment : Fragment() {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        val textView: TextView = binding.textHome
-        homeViewModel.text.observe(viewLifecycleOwner) {
-            textView.text = it
-        }
+        // 현재 날짜 표시
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        binding.textToday.text = today
 
-        // RecyclerView 어댑터 생성 및 연결 (클릭 시 수정 다이얼로그)
-        val adapter = RoutineAdapter(emptyList()) { position, routine ->
-            val editText = android.widget.EditText(requireContext())
-            editText.setText(routine.title)
-            val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("루틴 수정")
-                .setMessage("루틴 제목을 수정하세요.")
-                .setView(editText)
-                .setPositiveButton("수정") { _, _ ->
-                    val newTitle = editText.text.toString().trim()
-                    if (newTitle.isNotEmpty()) {
-                        homeViewModel.updateRoutine(position, newTitle)
-                    }
-                }
-                .setNegativeButton("취소", null)
-                .create()
-            dialog.show()
-        }
-        binding.recyclerRoutine.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(requireContext())
-        binding.recyclerRoutine.adapter = adapter
 
-        // LiveData 관찰하여 목록 갱신 + 로그
+        // 루틴 목록이 변경될 때마다 카드 뷰를 동적으로 생성/갱신
         homeViewModel.routines.observe(viewLifecycleOwner) { routines ->
-            Log.d("RoutineTest", "routines size: ${routines.size}, data: $routines")
-            adapter.submitList(routines)
+            binding.cardContainer.removeAllViews()
+            for ((index, routine) in routines.withIndex()) {
+                val cardView = layoutInflater.inflate(R.layout.routine_item, binding.cardContainer, false)
+                val titleView = cardView.findViewById<TextView>(R.id.text_routine_title)
+                titleView.text = routine.title
+
+                cardView.setOnClickListener {
+                    val editText = android.widget.EditText(requireContext())
+                    editText.setText(routine.title)
+                    val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("루틴 수정")
+                        .setMessage("루틴 제목을 수정하세요.")
+                        .setView(editText)
+                        .setPositiveButton("수정") { _, _ ->
+                            val newTitle = editText.text.toString().trim()
+                            if (newTitle.isNotEmpty()) {
+                                homeViewModel.updateRoutine(index, newTitle)
+                            }
+                        }
+                        .setNegativeButton("취소", null)
+                        .create()
+                    dialog.show()
+                }
+
+                binding.cardContainer.addView(cardView)
+            }
+            // 버튼을 항상 마지막에 추가
+            binding.cardContainer.addView(binding.btnAddRoutine)
         }
 
         // +버튼 클릭 시 다이얼로그 띄우기
-        binding.fab.setOnClickListener {
+        binding.btnAddRoutine.setOnClickListener {
             val editText = android.widget.EditText(requireContext())
             val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("루틴 추가")
@@ -70,7 +78,6 @@ class HomeFragment : Fragment() {
                 .setView(editText)
                 .setPositiveButton("추가") { _, _ ->
                     val title = editText.text.toString().trim()
-                    Log.d("RoutineTest", "addRoutine called with title: $title")
                     if (title.isNotEmpty()) {
                         homeViewModel.addRoutine(title)
                     }
